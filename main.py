@@ -104,14 +104,14 @@ if __name__ == '__main__':
         jpg_mask = jl.draw_mask(jpg_img, attributes, single_channel= True)
 
         # if nb_disease == 0:
-        cv2.imwrite(osp.join(img_target, name + '-%02d.jpg'%nb_disease), jpg_img)
-        cv2.imwrite(osp.join(vis_target, name + '-%02d.jpg'%nb_disease), cv2.hconcat([jpg_img_boxes, jpg_img_polygons]))
-        cv2.imwrite(osp.join(mask_target, name + '-%02d.jpg'%nb_disease), jpg_mask)
-        save_json(osp.join(json_target, name + '-%02d.json'%nb_disease), objs)
+        cv2.imwrite(osp.join(img_target, name + '_%02d.jpg'%nb_disease), jpg_img)
+        cv2.imwrite(osp.join(vis_target, name + '_%02d.jpg'%nb_disease), cv2.hconcat([jpg_img_boxes, jpg_img_polygons]))
+        cv2.imwrite(osp.join(mask_target, name + '_%02d.jpg'%nb_disease), jpg_mask)
+        save_json(osp.join(json_target, name + '_%02d.json'%nb_disease), objs)
 
 
     print('The number of disease: %d'%disease_counter)
-
+    print('Convert json to xml bbox', '.'*50)
     json_to_xml(json_target, xml_target)
 
 

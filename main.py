@@ -1,0 +1,123 @@
+# coding=utf-8
+from tqdm import tqdm
+import cv2.cv2
+from json_polygon import JsonLoader
+from pascal_voc_utils import Writer
+from util import load_json, namespace2dict, save_json
+import os.path as osp
+import os
+
+def read_dir(path):
+    '''
+    read the file from directory
+    :param path:
+    :return:
+    '''
+    files = {}
+    for root, _, filenames in os.walk(path):
+        for filename in filenames:
+            if filename.endswith('json'):
+                name = filename.split('.')[0]
+                files[name] = osp.join(root, name)
+
+    return files
+
+def json_to_xml(path, xml_root):
+    '''
+    load json file and save to xml bounding box
+    :param path:
+    :param xml_root:
+    :return:
+    '''
+    os.makedirs(xml_root, exist_ok=True)
+
+    jl = JsonLoader()
+
+    for root, _, filenames in os.walk(path):
+        for filename in tqdm(filenames):
+            if filename.endswith('json'):
+                p = osp.join(root, filename)
+                xml_p = osp.join(xml_root, filename.replace('json', 'xml'))
+
+                context = jl.load_json(p)
+                objects = jl.get_objects(context)
+
+                if len(objects['bboxes']) > 0:
+                    writer = Writer(objects['filename'], objects['width'], objects['height'], database = objects['filename'])
+                    writer.addBboxes(objects['bboxes'], objects['category_name'])
+
+                    writer.save(xml_p)
+
+if __name__ == '__main__':
+    # data path, has *.json, *.jpg file
+    root = '/Volumes/2022 AI 산림해충 방제 시스템/20220705 탐지학습데이터/labled'
+    # target path to save
+    target_path = '/Users/sober/Downloads/tp'
+
+    # json include polygon, point
+    json_target = osp.join(target_path, 'json')
+    # image gis image
+    img_target = osp.join(target_path, 'img')
+    # segmentation mask
+    mask_target = osp.join(target_path, 'mask')
+    # check whether the polygon and bbox is correctly annotate
+    vis_target = osp.join(target_path, 'vis')
+    # bbox xml
+    xml_target = osp.join(target_path, 'xml')
+
+    os.makedirs(json_target, exist_ok=True)
+    os.makedirs(img_target, exist_ok=True)
+    os.makedirs(vis_target, exist_ok=True)
+    os.makedirs(mask_target, exist_ok=True)
+    os.makedirs(xml_target, exist_ok=True)
+
+
+    jl = JsonLoader()
+
+    file_path = read_dir(root)
+    disease_counter = 0
+    for name, path in tqdm(file_path.items()):
+        jpg_path = path + '.jpg'
+        gt_path = path + '_gt.jpg'
+        json_path = path + '.json'
+
+
+
+        jpg_img = cv2.imread(jpg_path)
+        gt_img = cv2.imread(gt_path)
+
+
+        context = jl.load_json(json_path)
+        attributes = jl.get_objects(context)
+
+        nb_disease = len(attributes['polygons'])
+
+        disease_counter += nb_disease
+
+        objs = namespace2dict(context)
+
+        # draw bbox image
+        jpg_img_boxes = jl.draw_bboxes(jpg_img, attributes)
+        # draw polygon image
+        jpg_img_polygons = jl.draw_polygons(jpg_img, attributes)
+        # draw image
+        jpg_mask = jl.draw_mask(jpg_img, attributes, single_channel= True)
+
+        # if nb_disease == 0:
+        cv2.imwrite(osp.join(img_target, name + '-%02d.jpg'%nb_disease), jpg_img)
+        cv2.imwrite(osp.join(vis_target, name + '-%02d.jpg'%nb_disease), cv2.hconcat([jpg_img_boxes, jpg_img_polygons]))
+        cv2.imwrite(osp.join(mask_target, name + '-%02d.jpg'%nb_disease), jpg_mask)
+        save_json(osp.join(json_target, name + '-%02d.json'%nb_disease), objs)
+
+
+    print('The number of disease: %d'%disease_counter)
+
+    json_to_xml(json_target, xml_target)
+
+
+
+
+
+
+
+

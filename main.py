@@ -50,9 +50,9 @@ def json_to_xml(path, xml_root):
 
 if __name__ == '__main__':
     # data path, has *.json, *.jpg file
-    root = '/Volumes/2022 AI 산림해충 방제 시스템/20220705 탐지학습데이터/labled'
+    root = '/Users/sober/Downloads/Project/2022_pwd/20220720'
     # target path to save
-    target_path = '/Users/sober/Downloads/tp'
+    target_path = '/Users/sober/Downloads/Project/2022_pwd/20220720_r'
 
     # json include polygon, point
     json_target = osp.join(target_path, 'json')
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     jl = JsonLoader()
 
     file_path = read_dir(root)
-    disease_counter = 0
+    disease_counter, dis_img_counter, no_dis_img_counter, total_img = 0, 0, 0, 0
     for name, path in tqdm(file_path.items()):
         jpg_path = path + '.jpg'
         gt_path = path + '_gt.jpg'
@@ -93,6 +93,11 @@ if __name__ == '__main__':
         nb_disease = len(attributes['polygons'])
 
         disease_counter += nb_disease
+        if nb_disease > 0:
+            dis_img_counter += 1
+        else:
+            no_dis_img_counter += 1
+        total_img += 1
 
         objs = namespace2dict(context)
 
@@ -101,16 +106,18 @@ if __name__ == '__main__':
         # draw polygon image
         jpg_img_polygons = jl.draw_polygons(jpg_img, attributes)
         # draw image
-        jpg_mask = jl.draw_mask(jpg_img, attributes, single_channel= True)
+        jpg_mask = jl.draw_mask(jpg_img, attributes, c = (1, 1, 1), single_channel= True)
 
         # if nb_disease == 0:
         cv2.imwrite(osp.join(img_target, name + '_%02d.jpg'%nb_disease), jpg_img)
         cv2.imwrite(osp.join(vis_target, name + '_%02d.jpg'%nb_disease), cv2.hconcat([jpg_img_boxes, jpg_img_polygons]))
-        cv2.imwrite(osp.join(mask_target, name + '_%02d.jpg'%nb_disease), jpg_mask)
+        cv2.imwrite(osp.join(mask_target, name + '_%02d.png'%nb_disease), jpg_mask)
         save_json(osp.join(json_target, name + '_%02d.json'%nb_disease), objs)
 
 
-    print('The number of disease: %d'%disease_counter)
+    print('The number of disease: %d, disease image/no disease image/total: %d/%d/%d' % (disease_counter,
+                                                                                        dis_img_counter,
+                                                                                 no_dis_img_counter, total_img))
     print('Convert json to xml bbox', '.'*50)
     json_to_xml(json_target, xml_target)
 

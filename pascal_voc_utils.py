@@ -294,7 +294,62 @@ def cal_anchor(path, CLUSTERS = 9):
     ratios = np.around(out[:, 0] / out[:, 1], decimals=2).tolist()
     print("Ratios:\n {}".format(sorted(ratios)))
 
+class PaddingModify(object):
+    def __init__(self, xml_path, target_path, padding_pixel=0):
+        self.xml_path = xml_path
+        self.target_path = target_path
+        self.padding_pixel = padding_pixel
 
+    def text2int(self, text):
+        return int(round(float(text)))
+
+    def modify(self):
+        flag = False
+        width, height = self.text2int(self.root.find('size').find('width').text), self.text2int(self.root.find(
+            'size').find('height').text)
+        for object in self.root.iter('object'):
+            box = object.find('bndbox')
+
+            # y_min = box.find("ymin").text
+            # x_min = box.find("xmin").text
+            # y_max = box.find("ymax").text
+            # x_max = box.find("xmax").text
+            # bbox = [x_min, y_min, x_max, y_max]
+
+            y_min = self.text2int(box.find("ymin").text)
+            x_min = self.text2int(box.find("xmin").text)
+            y_max = self.text2int(box.find("ymax").text)
+            x_max = self.text2int(box.find("xmax").text)
+
+            box.find("xmin").text = str(max(0, x_min - self.padding_pixel))
+            box.find("ymax").text = str(min(height, y_max + self.padding_pixel))
+            box.find("xmax").text = str(min(width, x_max + self.padding_pixel))
+            box.find("ymin").text = str(max(0, y_min - self.padding_pixel))
+            bbox = [x_min, y_min, x_max, y_max]
+
+            flag = True
+
+        return flag
+
+    def init(self):
+        self.doc = parse(self.xml_path)
+        self.root = self.doc.getroot()
+
+    def rewrite(self):
+        self.doc.write(self.target_path, encoding='utf-8')
+
+    def run(self):
+        try:
+            self.init()
+            flag = self.modify()
+            if flag:
+                self.rewrite()
+            else:
+                print(self.xml_path)
+
+        except Exception as e:
+            print(e)
+            print(self.target_path)
 
 
 if __name__ == '__main__':

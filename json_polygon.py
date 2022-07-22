@@ -105,7 +105,10 @@ class JsonLoader(object):
                     hs.append(h)
                     ws.append(w)
 
-                xmin, ymin, xmax, ymax = min(hs), min(ws), max(hs), max(ws)
+                # avoid the out of range
+                xmin, ymin, xmax, ymax = max(min(hs), 0), max(min(ws), 0), min(max(hs), width), min(max(ws), height)
+                if xmin >= xmax or ymin >= ymax:
+                    continue
 
                 obj_dicts['name'].append('disease')
                 obj_dicts['bboxes'].append([xmin, ymin, xmax, ymax])

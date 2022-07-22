@@ -1,6 +1,7 @@
 # coding=utf-8
 import os
 import os.path as osp
+import random
 import shutil
 from collections import defaultdict
 import numpy as np
@@ -16,7 +17,7 @@ def split_disease_noDisease(path, target):
     os.makedirs(osp.join(target, 'no_disease'), exist_ok= True)
     nb_disease_img, nb_no_disease_img = 0, 0
     for root, _, filenames in os.walk(path):
-        for filename in filenames:
+        for filename in sorted(filenames):
             if filename.endswith('jpg'):
                 name =  filename.split('.')[0]
                 nb_disease = int(name.split('_')[-1])
@@ -29,6 +30,28 @@ def split_disease_noDisease(path, target):
                     nb_no_disease_img += 1
     print('Disease/No disease image: %d/%d'%(nb_disease_img, nb_no_disease_img))
 
+def train_test_split(path, target, test_rate = 0.1, random_state = 1):
+    os.makedirs(osp.join(target, 'train'))
+    os.makedirs(osp.join(target, 'test'))
+
+    files = []
+    for root, _, filenames in os.walk(path):
+        for filename in sorted(filenames):
+            if filename.endswith('jpg'):
+                files.append(osp.join(root, filename))
+    random.seed(random_state)
+    random.shuffle(files)
+    nb_train = int(len(files) * (1 - test_rate))
+
+    for i in files[:nb_train]:
+        shutil.copy(i, osp.join(target, 'train'))
+        shutil.copy(i.replace('jpg', 'xml'), osp.join(target, 'train'))
+
+    for i in files[nb_train:]:
+        shutil.copy(i, osp.join(target, 'test'))
+        shutil.copy(i.replace('jpg', 'xml'), osp.join(target, 'test'))
+
+    print('Number of train/test data: %d/%d'%(len(files[:nb_train]), len(files[nb_train:])))
 
 def make_dataset(source, target_path, target_cls, resolution_info = None):
     label_dict = {
@@ -100,9 +123,9 @@ def make_dataset(source, target_path, target_cls, resolution_info = None):
 
 def prepare_fold(df_path, target_path, test_image_paths = None, num_fold = 5):
     df = pd.read_csv(df_path)
-    # skf = StratifiedKFold(n_splits=num_fold, shuffle = True, random_state=1)
+    skf = StratifiedKFold(n_splits=num_fold, shuffle = True, random_state=1)
 
-    skf = ShuffleSplit(n_splits=2, shuffle = True, random_state=1)
+    # skf = ShuffleSplit(n_splits=2, shuffle = True, random_state=1)
 
     df_folds = df[['image_id', 'source', 'name']].copy()
 
@@ -142,21 +165,20 @@ def prepare_fold(df_path, target_path, test_image_paths = None, num_fold = 5):
     # df_folds.sort_values(by = ['image_id'], inplace=True)
     df_folds.to_csv(osp.join(target_path, 'fold.csv'), index = False)
 
-import cv2
 if __name__ == '__main__':
-    # split_disease_noDisease('/Users/sober/Downloads/Project/2022_pwd/train',
-    #                         '/Users/sober/Downloads/Project/2022_pwd/disease_split')
+    split_disease_noDisease('/Users/sober/Downloads/Project/2022_pwd/train',
+                            '/Users/sober/Downloads/Project/2022_pwd/disease_split')
 
-    # make_dataset('/Users/sober/Downloads/Project/2022_pwd/disease_split/disease',
-    #              '/Users/sober/Downloads/Project/2022_pwd/disease_split' ,  target_cls = ['disease', 'background'])
+    # train_test_split('/Users/sober/Downloads/Project/2022_pwd/disease_split/disease',
+    #                  '/Users/sober/Downloads/Project/2022_pwd/disease_split/split')
 
-    # prepare_fold('/home/khtt/code/detector2FPN/ssd/clear_data/data.csv',  '/home/khtt/code/detector2FPN/ssd/clear_data',  '/home/khtt/code/detector2FPN/ssd/img')
 
-    path = '/Users/sober/Downloads/Project/2022_pwd/20220720_r/mask'
-    for root, _, filenames in os.walk(path):
-        for filename in filenames:
-            if filename.endswith('png'):
-                img = cv2.imread(osp.join(root, filename))
+    make_dataset('/Users/sober/Downloads/Project/2022_pwd/disease_split/disease',
+                 '/Users/sober/Downloads/Project/2022_pwd/disease_split/' ,  target_cls = ['disease',
+                                                                                                'background'])
 
-                value = np.unique(img)
-                print(filename, value)
+    prepare_fold('/Users/sober/Downloads/Project/2022_pwd/disease_split/data.csv',
+                 '/Users/sober/Downloads/Project/2022_pwd/disease_split/',
+                 '/Users/sober/Downloads/Project/2022_pwd/disease_split/no_disease')
+
+

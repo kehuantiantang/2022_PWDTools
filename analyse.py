@@ -69,15 +69,19 @@ def scatter_image(pkl_path):
     plt.title(pkl_path)
     plt.show()
 
-def bbox_counter(path):
-    counter = defaultdict(int)
+def bbox_img_counter(path, count_img = False):
+    counter, img_counter = defaultdict(int), 0
     for root, _, filenames in os.walk(path):
         for filename in filenames:
             if filename.endswith('xml'):
                 objs = Reader(osp.join(root, filename)).get_objects()
                 for label in objs['category_name']:
                     counter[label] += 1
-    print(counter)
+                if count_img:
+                    if osp.exists(osp.join(root, filename).replace('xml', 'jpg')):
+                        img_counter += 1
+
+    print(counter, img_counter)
 
 
 def enlarge_xml(path, target_path, padding_pixel):
@@ -141,14 +145,21 @@ def check_bbox(path, min_size = 0.01):
                      if xmax - xmin <= width * min_size or ymax - ymin <= height *min_size:
                          print(filename, (xmin, ymin, xmax, ymax))
 
+def a(path):
+    counter = 0
+    for root, _, filenames in os.walk(path):
+        for filename in filenames:
+            if filename.endswith('jpg'):
+                if int(filename.split('.')[0].split('_')[-1]) == 0:
+                    counter += 1
+    print(counter)
 
 if __name__ == '__main__':
     # drop_small('/Users/sober/Downloads/Project/2022_pwd/disease_split/disease',
     #            '/Users/sober/Downloads/Project/2022_pwd/disease_split/disease_drop_small')
 
-    enlarge_xml('/Users/sober/Downloads/Project/2022_pwd/disease_split/disease_drop_small',
-                '/Users/sober/Downloads/Project/2022_pwd/disease_split/disease_enlarge8', padding_pixel= 8)
-
+    # enlarge_xml('/Users/sober/Downloads/Project/2022_pwd/disease_split/disease_drop_small',
+    #             '/Users/sober/Downloads/Project/2022_pwd/disease_split/disease_enlarge8', padding_pixel= 8)
 
 
     # check_bbox('/Users/sober/Downloads/Project/2022_pwd/disease_split/disease')
@@ -156,3 +167,20 @@ if __name__ == '__main__':
     # box_scales(r'E:\make_pine_data\rgb\auged_data\val\xml', r'H:\val_aug_scales.pkl')
     # scatter_image(r"H:\val_aug_scales.pkl")
 
+    # bbox_img_counter('/Users/sober/Downloads/Project/2022_pwd/disease_split/yolo/val', True)
+    # a('/Users/sober/Downloads/Project/2022_pwd/disease_split/yolo/val_with_normal')
+
+    import cv2
+    import numpy as np
+    img = cv2.imread('/Users/sober/Downloads/Project/2022_pwd/temp/kangsan/test/img/AP_IMAGE_512/FR_GS_AP_35712028_443.tif', cv2.IMREAD_UNCHANGED)
+    print(img.shape, np.unique(img))
+    # p = '/Users/sober/Downloads/Project/2022_pwd/temp/zezhu/test/label/PI_512/METADATA/FR_JJ_PI_6049_FGT_META.json'
+    # # encoding = 'cp1250', errors = 'ignore'
+    # from bs4 import UnicodeDammit
+    # with open(p, encoding='utf-8-sig' ) as f:
+    #     context = f.read()
+    #     print(context)
+    #     print(context[1:])
+
+        # suggestion = UnicodeDammit(context)
+        # print(suggestion.original_encoding)

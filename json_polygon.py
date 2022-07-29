@@ -28,9 +28,10 @@ class JsonLoader(object):
         else:
             return c
 
-    def load_json(self, path, replace_pair = [('class', 'class_id'), ('Class', 'Class_id')]):
-        with open(path, encoding='utf-8') as f:
-            context = f.read()
+    def load_json(self, path, replace_pair = [('class', 'class_id'), ('Class', 'Class_id')], encoding = 'utf-8',
+                  skip = 0):
+        with open(path, encoding=encoding) as f:
+            context = f.read()[skip:]
             if replace_pair:
                 for old, new in replace_pair:
                     context = context.replace(old, new)
@@ -148,27 +149,37 @@ class JsonLoader(object):
                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, JsonLoader.color_dict["green"], 1, cv2.LINE_AA)
         return img
 
-    def draw_polygons(self, img, obj_dicts):
+    def draw_polygons(self, img, obj_dicts, color_dict = None):
         assert np.max(img) > 1.0
         img = np.array(img)
+        if color_dict is None:
+            color_dict = {obj_dicts['name'][0], 'blue'}
         for polygon, name in zip(obj_dicts['polygons'], obj_dicts['name']):
-            img = self.draw_polygon(img, polygon, name, 'blue')
+            img = self.draw_polygon(img, polygon, name, color_dict['name'])
         return img
 
-    def draw_mask(self, img, obj_dicts, c = 'black', single_channel = False):
+    def draw_mask(self, img, obj_dicts, color_dict = None, single_channel = False):
         '''
         draw semantic segmentation mask
         :param img:  raw gis image
         :param obj_dicts:  polygon point
-        :param c:  color (0, 0, 0),  (1, 1, 1)
+        :param color_dict:  {object_name: (0, 0, 0)} object --> color dict
         :param single_channel: if true return segmentation mask [0, 1, 0, 0, 2, 1],
         else return rgb visualization mask
         :return:
         '''
         mask = np.zeros_like(img)
-        polygons = [np.array(polygon) for polygon in obj_dicts['polygons']]
-        color = self.get_color(c) # (r, g, b)
-        mask = cv2.fillPoly(mask, polygons, color)
+        obj_polygons = defaultdict(list)
+        for polygon, name in zip(obj_dicts['polygons'], obj_dicts['name']):
+            obj_polygons[name].append(np.array(polygon))
+
+
+        for name, polygons in obj_polygons.items():
+            mask = cv2.fillPoly(mask, polygons, color_dict[name] if color_dict is not None else self.get_color('black'))
+
+        # polygons = [np.array(polygon) for polygon in obj_dicts['polygons']]
+        # color = self.get_color(color_dict) # (r, g, b)
+        # mask = cv2.fillPoly(mask, polygons, color)
 
         if single_channel:
             mask = mask[:, :, 0]

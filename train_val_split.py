@@ -125,7 +125,6 @@ def prepare_fold(df_path, target_path, test_image_paths = None, num_fold = 5):
     df = pd.read_csv(df_path)
     skf = StratifiedKFold(n_splits=num_fold, shuffle = True, random_state=1)
 
-    # skf = ShuffleSplit(n_splits=2, shuffle = True, random_state=1)
 
     df_folds = df[['image_id', 'source', 'name']].copy()
 

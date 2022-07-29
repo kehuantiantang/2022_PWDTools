@@ -106,7 +106,7 @@ if __name__ == '__main__':
         # draw polygon image
         jpg_img_polygons = jl.draw_polygons(jpg_img, attributes)
         # draw image
-        jpg_mask = jl.draw_mask(jpg_img, attributes, c = (1, 1, 1), single_channel= True)
+        jpg_mask = jl.draw_mask(jpg_img, attributes, color_dict= (1, 1, 1), single_channel= True)
 
         # if nb_disease == 0:
         cv2.imwrite(osp.join(img_target, name + '_%02d.jpg'%nb_disease), jpg_img)

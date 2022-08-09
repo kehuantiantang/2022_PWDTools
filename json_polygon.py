@@ -81,7 +81,7 @@ class JsonLoader(object):
     #
     #         return obj_dicts
 
-    def get_objects(self, context):
+    def get_objects(self, context, class_convert = None):
         if self.get_object_method != None:
             return self.get_object_method(context)
         else:
@@ -110,10 +110,10 @@ class JsonLoader(object):
                 xmin, ymin, xmax, ymax = max(min(hs), 0), max(min(ws), 0), min(max(hs), width), min(max(ws), height)
                 if xmin >= xmax or ymin >= ymax:
                     continue
-
-                obj_dicts['name'].append('disease')
+                class_name = label  if class_convert is  None else 'disease'
+                obj_dicts['name'].append(class_name)
                 obj_dicts['bboxes'].append([xmin, ymin, xmax, ymax])
-                obj_dicts['category_name'].append('disease')
+                obj_dicts['category_name'].append(class_name)
                 obj_dicts['polygons'].append(points)
 
 
@@ -145,7 +145,7 @@ class JsonLoader(object):
     def draw_polygon(self, img, polygon, name, c):
         color = self.get_color(c)
         img = cv2.polylines(img, [np.array(polygon, np.int32)], True, color, 1)
-        img = cv2.putText(img, str(name), (polygon[0][0], polygon[0][1] - 10),
+        img = cv2.putText(img, str(name), (int(polygon[0][0]), int(polygon[0][1]) - 10),
                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, JsonLoader.color_dict["green"], 1, cv2.LINE_AA)
         return img
 
@@ -155,7 +155,7 @@ class JsonLoader(object):
         if color_dict is None:
             color_dict = {obj_dicts['name'][0], 'blue'}
         for polygon, name in zip(obj_dicts['polygons'], obj_dicts['name']):
-            img = self.draw_polygon(img, polygon, name, color_dict['name'])
+            img = self.draw_polygon(img, polygon, name, color_dict[name])
         return img
 
     def draw_mask(self, img, obj_dicts, color_dict = None, single_channel = False):
@@ -171,7 +171,7 @@ class JsonLoader(object):
         mask = np.zeros_like(img)
         obj_polygons = defaultdict(list)
         for polygon, name in zip(obj_dicts['polygons'], obj_dicts['name']):
-            obj_polygons[name].append(np.array(polygon))
+            obj_polygons[name].append(np.array(polygon, dtype = np.int32))
 
 
         for name, polygons in obj_polygons.items():

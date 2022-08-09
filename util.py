@@ -16,7 +16,9 @@ import yaml
 
 from logger import Logger
 from pascal_voc_utils import Reader
-
+import cv2
+import numpy as np
+from tqdm import tqdm
 
 def get_current_lr(optimizer):
     for param_group in optimizer.param_groups:
@@ -31,6 +33,7 @@ def load_json(fname, encoding = 'utf8'):
     with open(fname, "r", encoding= encoding) as json_file:
         d = json.load(json_file)
         return d
+
 
 
 def save_json(fname, data, encoding = 'utf8'):
@@ -151,6 +154,32 @@ def save_hyperparams(path, context):
         file.write('%s%s'%('='*80, '\n'))
     return osp.join(path, 'hyper_params.txt')
 
+
+def imread(filename, flags=cv2.IMREAD_COLOR, dtype=np.uint8):
+    try:
+        n = np.fromfile(filename, dtype)
+        img = cv2.imdecode(n, flags)
+        return img
+    except Exception as e:
+        print(e)
+        return None
+
+
+def imwrite(filename, img, params=None):
+    try:
+        ext = os.path.splitext(filename)[1]
+        result, n = cv2.imencode(ext, img, params)
+
+        if result:
+            with open(filename, mode='w+b') as f:
+                n.tofile(f)
+                return True
+        else:
+            return False
+    except Exception as e:
+        print(e)
+        return False
+
 def hyperparams2yaml(path, context, backup_file = True):
 
     params = vars(context)
@@ -189,6 +218,18 @@ def backup(path, base_path = None, suffixs = ['py', 'yaml'], exclude_folder_name
     zipf.close()
 
 
+def zip_files(path, target_path, exclude_folder_names = []):
+    zipf = zipfile.ZipFile(target_path, 'w', zipfile.ZIP_DEFLATED)
+    for root, _, filenames in os.walk(path):
+        r = osp.abspath(root)
+        if sum([e in r for e in exclude_folder_names]) == 0:
+            for filename in tqdm(sorted(filenames), desc = root):
+                    zipf.write(os.path.join(root, filename),
+                               os.path.relpath(os.path.join(root, filename),
+                                               os.path.join(path, '..')))
+    zipf.close()
+
+
 def namespace2dict(input):
     if isinstance(input, SimpleNamespace):
         input = vars(input)
@@ -204,4 +245,8 @@ def namespace2dict(input):
 
 
 if __name__ == '__main__':
-    backup('/home/khtt/code/pytorch-classification/rhythm_segmentation/output/unknown/test/a.zip')
+    # backup('/home/khtt/code/pytorch-classification/rhythm_segmentation/output/unknown/test/a.zip')
+    # p = r'\\Ds920plus\2022 ai 산림해충 방제 시스템\수종데이트\maked_data'
+    p = r'\\Ds920plus\2022 ai 산림해충 방제 시스템\수종데이트\maked_data'
+    t = r'\\Ds920plus\2022 ai 산림해충 방제 시스템\수종데이트\data.zip'
+    zip_files(p, t, exclude_folder_names=['PI', 'vis', 'test\CG', 'test\FG\AP_1024', '.DS_Store'])

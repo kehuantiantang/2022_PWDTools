@@ -6,6 +6,7 @@ from pascal_voc_utils import Writer
 from util import load_json, namespace2dict, save_json
 import os.path as osp
 import os
+from util import imread, imwrite
 
 def read_dir(path):
     '''
@@ -50,9 +51,9 @@ def json_to_xml(path, xml_root):
 
 if __name__ == '__main__':
     # data path, has *.json, *.jpg file
-    root = '/Users/sober/Downloads/Project/2022_pwd/20220720'
+    root = r'H:\tp\언양(완료)\output\18\225098'
     # target path to save
-    target_path = '/Users/sober/Downloads/Project/2022_pwd/20220720_r'
+    target_path = r'H:\tp\언양(완료)\output\18\225098_r'
 
     # json include polygon, point
     json_target = osp.join(target_path, 'json')
@@ -76,15 +77,17 @@ if __name__ == '__main__':
 
     file_path = read_dir(root)
     disease_counter, dis_img_counter, no_dis_img_counter, total_img = 0, 0, 0, 0
+    color_dict = {'car': (0, 255, 255), 'tree': (0, 255, 0), 'road':(255, 0, 0), 'building': (0, 0, 255), 'field': (255, 255, 0)}
     for name, path in tqdm(file_path.items()):
-        jpg_path = path + '.jpg'
+        # jpg_path = path + '.jpg'
+        jpg_path = path + '.png'
         gt_path = path + '_gt.jpg'
         json_path = path + '.json'
 
 
 
-        jpg_img = cv2.imread(jpg_path)
-        gt_img = cv2.imread(gt_path)
+        jpg_img = imread(jpg_path)
+        gt_img = imread(gt_path)
 
 
         context = jl.load_json(json_path)
@@ -104,14 +107,15 @@ if __name__ == '__main__':
         # draw bbox image
         jpg_img_boxes = jl.draw_bboxes(jpg_img, attributes)
         # draw polygon image
-        jpg_img_polygons = jl.draw_polygons(jpg_img, attributes)
+        jpg_img_polygons = jl.draw_polygons(jpg_img, attributes, color_dict = color_dict)
         # draw image
-        jpg_mask = jl.draw_mask(jpg_img, attributes, color_dict= (1, 1, 1), single_channel= True)
+        # jpg_mask = jl.draw_mask(jpg_img, attributes, color_dict= color_dict, single_channel= True)
+        jpg_mask = jl.draw_mask(jpg_img, attributes, color_dict=color_dict)
 
         # if nb_disease == 0:
-        cv2.imwrite(osp.join(img_target, name + '_%02d.jpg'%nb_disease), jpg_img)
-        cv2.imwrite(osp.join(vis_target, name + '_%02d.jpg'%nb_disease), cv2.hconcat([jpg_img_boxes, jpg_img_polygons]))
-        cv2.imwrite(osp.join(mask_target, name + '_%02d.png'%nb_disease), jpg_mask)
+        imwrite(osp.join(img_target, name + '_%02d.jpg'%nb_disease), jpg_img)
+        imwrite(osp.join(vis_target, name + '_%02d.jpg'%nb_disease), cv2.hconcat([jpg_img_boxes, jpg_img_polygons]))
+        imwrite(osp.join(mask_target, name + '_%02d.png'%nb_disease), jpg_mask)
         save_json(osp.join(json_target, name + '_%02d.json'%nb_disease), objs)
 
 

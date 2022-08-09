@@ -12,7 +12,7 @@ import os.path as osp
 
 from pascal_voc_utils import Writer
 from util import save_json
-
+from easydict import EasyDict as edict
 
 def get_objects(contexts):
     meta_context, context = contexts
@@ -141,100 +141,101 @@ def get_color_dict():
     return label_colours
 
 if __name__ == '__main__':
-    # jl = JsonLoader(get_objects)
-    # name = 'FR_JJ_AP_33607060_010_FGT'
-    # meta_path, json_path = '/Users/sober/Downloads/Project/%s_META.json'%name, \
-    #                     '/Users/sober/Downloads/Project/%s.json'%name
-    # meta_context = jl.load_json(meta_path, encoding = 'EUC-KR')
-    # context = jl.load_json(json_path, encoding = None)
+    jl = JsonLoader(get_objects)
+    name = 'FR_JJ_AP_33607060_010_FGT'
+    meta_path, json_path = '/Users/sober/Downloads/Project/%s_META.json'%name, \
+                        '/Users/sober/Downloads/Project/%s.json'%name
+    meta_context = jl.load_json(meta_path, encoding = 'EUC-KR')
+    context = jl.load_json(json_path, encoding = None)
+
+    attributes = jl.get_objects([meta_context, context])
+    # print(context.features[0].geometry.coordinates)
+    print(attributes)
+
+    img_path = '/Users/sober/Downloads/Project/%s.tif'%(name.replace('_CGT', '').replace('_FGT', ''))
+    jpg_img = cv2.imread(img_path)
+    jpg_mask = jl.draw_mask(jpg_img, attributes, color_dict = get_color_dict())
+    print(jpg_img.shape, jpg_mask.shape)
+
+    vis_im = cv2.addWeighted(jpg_img, 0.8, jpg_mask, 0.2, 0)
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.imshow(vis_im)
+    plt.show()
+
+
+    # jl = JsonLoader(get_zezhu_objects)
+    # train_test, directory = 'test', 'PI_IMAGE_512'
+    # root_img_path = '/Users/sober/Downloads/Project/2022_pwd/temp/zezhu/%s/img/%s'%(train_test, directory)
+    # root_label_path = '/Users/sober/Downloads/Project/2022_pwd/temp/zezhu/%s/label/%s'%(train_test, directory.replace(
+    #     '_IMAGE', ''))
+    # target_path = '/Volumes/2022 AI 산림해충 방제 시스템/수종데이트/maked_data/zezhu/%s/%s'%(train_test,
+    # directory.replace('_IMAGE', ''))
+    # vis_path, mask_path, img_path, json_path, xml_path = osp.join(target_path, 'vis'), \
+    #                                                      osp.join(target_path,'mask'), \
+    #                                                      osp.join(target_path, 'img'), \
+    #                                                      osp.join(target_path, 'json'), \
+    #                                                      osp.join(target_path, 'xml')
+    # [os.makedirs(i, exist_ok= True) for i in [vis_path, mask_path, img_path, json_path, xml_path]]
     #
-    # attributes = jl.get_objects([meta_context, context])
-    # # print(context.features[0].geometry.coordinates)
-    # print(attributes)
+    # for root, _, filenames in os.walk(root_img_path):
+    #     for filename in tqdm(sorted(filenames), desc=root):
+    #         if filename.lower().endswith('tif'):
+    #             name = filename.split('.')[0].replace('_1024', '')
+    #             # 1024, 512
+    #             res = osp.split(root)[-1].split('_')[-1]
+    #             root_img_path = osp.join(root, filename)
     #
-    # img_path = '/Users/sober/Downloads/Project/%s.tif'%(name.replace('_CGT', '').replace('_FGT', ''))
-    # jpg_img = cv2.imread(img_path)
-    # jpg_mask = jl.draw_mask(jpg_img, attributes, color_dict = get_color_dict())
-    # print(jpg_img.shape, jpg_mask.shape)
+    #             vis_img_path = osp.join(root_label_path, 'FGT_TIF', '%s_FGT_%s.tif'%(name, res))
+    #             if osp.exists(vis_img_path):
+    #                 meta_path, context_path = osp.join(root_label_path, 'METADATA', '%s_FGT_META_%s.json'%(name,
+    #                                                                                                        res)), \
+    #                                    osp.join(root_label_path, 'FGT_JSON', '%s_FGT_%s.json'%(name, res))
+    #             else:
+    #                 vis_img_path = osp.join(root_label_path, 'FGT_TIF', '%s_FGT.tif'%(name))
+    #                 meta_path, context_path = osp.join(root_label_path, 'METADATA', '%s_FGT_META.json'%(name)), \
+    #                                        osp.join(root_label_path, 'FGT_JSON', '%s_FGT.json'%(name))
     #
-    # vis_im = cv2.addWeighted(jpg_img, 0.8, jpg_mask, 0.2, 0)
-    # import matplotlib.pyplot as plt
-    # plt.figure()
-    # plt.imshow(vis_im)
-    # plt.show()
-
-    jl = JsonLoader(get_zezhu_objects)
-    train_test, directory = 'test', 'PI_IMAGE_512'
-    root_img_path = '/Users/sober/Downloads/Project/2022_pwd/temp/zezhu/%s/img/%s'%(train_test, directory)
-    root_label_path = '/Users/sober/Downloads/Project/2022_pwd/temp/zezhu/%s/label/%s'%(train_test, directory.replace(
-        '_IMAGE', ''))
-    target_path = '/Volumes/2022 AI 산림해충 방제 시스템/수종데이트/maked_data/zezhu/%s/%s'%(train_test,
-    directory.replace('_IMAGE', ''))
-    vis_path, mask_path, img_path, json_path, xml_path = osp.join(target_path, 'vis'), \
-                                                         osp.join(target_path,'mask'), \
-                                                         osp.join(target_path, 'img'), \
-                                                         osp.join(target_path, 'json'), \
-                                                         osp.join(target_path, 'xml')
-    [os.makedirs(i, exist_ok= True) for i in [vis_path, mask_path, img_path, json_path, xml_path]]
-
-    for root, _, filenames in os.walk(root_img_path):
-        for filename in tqdm(sorted(filenames), desc=root):
-            if filename.lower().endswith('tif'):
-                name = filename.split('.')[0].replace('_1024', '')
-                # 1024, 512
-                res = osp.split(root)[-1].split('_')[-1]
-                root_img_path = osp.join(root, filename)
-
-                vis_img_path = osp.join(root_label_path, 'FGT_TIF', '%s_FGT_%s.tif'%(name, res))
-                if osp.exists(vis_img_path):
-                    meta_path, context_path = osp.join(root_label_path, 'METADATA', '%s_FGT_META_%s.json'%(name,
-                                                                                                           res)), \
-                                       osp.join(root_label_path, 'FGT_JSON', '%s_FGT_%s.json'%(name, res))
-                else:
-                    vis_img_path = osp.join(root_label_path, 'FGT_TIF', '%s_FGT.tif'%(name))
-                    meta_path, context_path = osp.join(root_label_path, 'METADATA', '%s_FGT_META.json'%(name)), \
-                                           osp.join(root_label_path, 'FGT_JSON', '%s_FGT.json'%(name))
-
-                try:
-                    meta_context = jl.load_json(meta_path, encoding = 'EUC-KR', replace_pair=[('"region"', ',"region"'),
-                                                                                              ('"korft_description"',
-                                                                                               ',"korft_description"')])
-                except:
-                    try:
-                        meta_context = jl.load_json(meta_path, encoding = None)
-                    except:
-                        meta_context = jl.load_json(meta_path, encoding = 'utf-16le', replace_pair=[('"region"', ',"region"'),
-                                                                                                  ('"korft_description"',
-                                                                                                   ','
-                                                                                                   '"korft_description"')], skip= 1)
-
-
-                context = jl.load_json(context_path, encoding = None, replace_pair=[("null", '"활엽수"')])
-
-                attributes = jl.get_objects([meta_context, context])
-                # print(context.features[0].geometry.coordinates)
-                # print(attributes)
-
-                # img
-                img = cv2.imread(root_img_path)
-                cv2.imwrite(osp.join(img_path, '%s.jpg'%name), img)
-
-                # mask
-                mask = jl.draw_mask(img, attributes, color_dict = get_color_dict())
-                cv2.imwrite(osp.join(mask_path, '%s.png'%name), mask)
-
-                vis = cv2.imread(vis_img_path)
-                vis = cv2.hconcat([img, mask, vis])
-                cv2.imwrite(osp.join(vis_path, '%s.jpg'%name), vis)
-
-                #  xml
-                if len(attributes['bboxes']) > 0:
-                    writer = Writer(attributes['filename'], attributes['width'], attributes['height'], database = attributes['filename'])
-                    writer.addBboxes(attributes['bboxes'], attributes['category_name'])
-                    writer.save(osp.join(xml_path, '%s.xml'%name))
-
-                # json
-                save_json(osp.join(json_path, '%s.json'%name), attributes)
+    #             try:
+    #                 meta_context = jl.load_json(meta_path, encoding = 'EUC-KR', replace_pair=[('"region"', ',"region"'),
+    #                                                                                           ('"korft_description"',
+    #                                                                                            ',"korft_description"')])
+    #             except:
+    #                 try:
+    #                     meta_context = jl.load_json(meta_path, encoding = None)
+    #                 except:
+    #                     meta_context = jl.load_json(meta_path, encoding = 'utf-16le', replace_pair=[('"region"', ',"region"'),
+    #                                                                                               ('"korft_description"',
+    #                                                                                                ','
+    #                                                                                                '"korft_description"')], skip= 1)
+    #
+    #
+    #             context = jl.load_json(context_path, encoding = None, replace_pair=[("null", '"활엽수"')])
+    #
+    #             attributes = jl.get_objects([meta_context, context])
+    #             # print(context.features[0].geometry.coordinates)
+    #             # print(attributes)
+    #
+    #             # img
+    #             img = cv2.imread(root_img_path)
+    #             cv2.imwrite(osp.join(img_path, '%s.jpg'%name), img)
+    #
+    #             # mask
+    #             mask = jl.draw_mask(img, attributes, color_dict = get_color_dict())
+    #             cv2.imwrite(osp.join(mask_path, '%s.png'%name), mask)
+    #
+    #             vis = cv2.imread(vis_img_path)
+    #             vis = cv2.hconcat([img, mask, vis])
+    #             cv2.imwrite(osp.join(vis_path, '%s.jpg'%name), vis)
+    #
+    #             #  xml
+    #             if len(attributes['bboxes']) > 0:
+    #                 writer = Writer(attributes['filename'], attributes['width'], attributes['height'], database = attributes['filename'])
+    #                 writer.addBboxes(attributes['bboxes'], attributes['category_name'])
+    #                 writer.save(osp.join(xml_path, '%s.xml'%name))
+    #
+    #             # json
+    #             save_json(osp.join(json_path, '%s.json'%name), attributes)
 
 
     # path = '/Users/sober/Downloads/Project/2022_pwd/temp'

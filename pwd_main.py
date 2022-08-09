@@ -79,6 +79,7 @@ if __name__ == '__main__':
     disease_counter, dis_img_counter, no_dis_img_counter, total_img = 0, 0, 0, 0
     color_dict = {'car': (0, 255, 255), 'tree': (0, 255, 0), 'road':(255, 0, 0), 'building': (0, 0, 255), 'field': (255, 255, 0)}
     for name, path in tqdm(file_path.items()):
+        # the suffix of filename
         # jpg_path = path + '.jpg'
         jpg_path = path + '.png'
         gt_path = path + '_gt.jpg'

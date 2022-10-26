@@ -39,47 +39,30 @@ class JsonLoader(object):
             context = json.loads(context, object_hook=lambda d: SimpleNamespace(**d))
             return context
 
-    # def get_objects(self, context):
-    #     if self.get_object_method != None:
-    #         return self.get_object_method(context)
-    #     else:
-    #         width = float(context.imgsize.width)
-    #         height = float(context.imgsize.height)
-    #         path = context.location
-    #         obj_dicts = {'name':[], 'bboxes':[], 'category_name':[],
-    #                      'name_pattern': '', 'height':height, 'width':width, 'path':path, 'polygons':[]}
-    #
-    #         for object in context.segmentations:
-    #             bbox = [int(object.box.boxcorner.x), int(object.box.boxcorner.y), int(object.box.boxcorner.x) + int(
-    #                 object.box.boxsize.width), int(object.box.boxcorner.y) + int(
-    #                 object.box.boxsize.height)]
-    #
-    #             obj_dicts['name'].append(object.class_id)
-    #             obj_dicts['category_name'].append(object.class_id)
-    #             obj_dicts['bboxes'].append(bbox)
-    #
-    #             obj_dicts['polygons'].append([[int(p.x), int(p.y)] for p in object.polygon])
-    #         return obj_dicts
+    def resize_annotation(self, obj_dicts, dsize):
+        height, width = obj_dicts['height'], obj_dicts['width']
+        n_polygons, n_bboxes = [], []
+        for boxes, polygons in zip(obj_dicts['bboxes'], obj_dicts['polygons']):
+            xmin, ymin, xmax, ymax = boxes
+            xmin, ymin, xmax, ymax = np.clip(xmin * 1.0 / height * dsize, 0, dsize), np.clip(ymin * 1.0 / width * dsize, \
+                                                                                             0, dsize), np.clip(
+                xmax * 1.0 / height * dsize, 0, dsize), np.clip(ymax * 1.0 / width * dsize, 0, dsize)
 
-    # def get_objects(self, context):
-    #     if self.get_object_method != None:
-    #         return self.get_object_method(context)
-    #     else:
-    #         width = float(context.img_size.width)
-    #         height = float(context.img_size.height)
-    #         path = context.filename
-    #         obj_dicts = {'name':[], 'bboxes':[], 'category_name':[],
-    #                      'name_pattern': '', 'height':height, 'width':width, 'path':path, 'polygons':[],
-    #                      'filename':path}
-    #
-    #         for bboxes, name in zip(context.bboxes, context.category_name) :
-    #             bbox = [int(bboxes[0]), int(bboxes[1]), int(bboxes[2]), int(bboxes[3])]
-    #
-    #             obj_dicts['name'].append(name)
-    #             obj_dicts['category_name'].append(name)
-    #             obj_dicts['bboxes'].append(bbox)
-    #
-    #         return obj_dicts
+            polygons = np.array(polygons)
+            polygons[:, 0] =  np.clip(1.0 * polygons[:, 0] / height * dsize, 0, dsize)
+            polygons[:, 1] =  np.clip(1.0 * polygons[:, 1] / width * dsize, 0, dsize)
+
+            # avoid so small bbox
+            if xmin >= xmax or ymin >= ymax :
+                continue
+
+            n_polygons.append(polygons)
+            n_bboxes.append([xmin, ymin, xmax, ymax ])
+        obj_dicts['bboxes'], obj_dicts['polygons'] = n_bboxes, n_polygons
+        obj_dicts['height'], obj_dicts['width'] = dsize, dsize
+
+        return obj_dicts
+
 
     def get_objects(self, context):
         if self.get_object_method != None:
@@ -107,7 +90,7 @@ class JsonLoader(object):
                     ws.append(w)
 
                 # avoid the out of range
-                xmin, ymin, xmax, ymax = max(min(hs), 0), max(min(ws), 0), min(max(hs), width), min(max(ws), height)
+                xmin, ymin, xmax, ymax = max(min(hs), 0), max(min(ws), 0), min(max(hs), height), min(max(ws), width)
                 if xmin >= xmax or ymin >= ymax:
                     continue
 
@@ -145,17 +128,17 @@ class JsonLoader(object):
     def draw_polygon(self, img, polygon, name, c):
         color = self.get_color(c)
         img = cv2.polylines(img, [np.array(polygon, np.int32)], True, color, 1)
-        img = cv2.putText(img, str(name), (polygon[0][0], polygon[0][1] - 10),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, JsonLoader.color_dict["green"], 1, cv2.LINE_AA)
+        cv2.putText(img, str(name), (max(0, int(polygon[0][0])), max(10, int(polygon[0][1] - 10))),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, JsonLoader.color_dict["green"], 1, cv2.LINE_AA)
         return img
 
     def draw_polygons(self, img, obj_dicts, color_dict = None):
         assert np.max(img) > 1.0
         img = np.array(img)
         if color_dict is None:
-            color_dict = {obj_dicts['name'][0], 'blue'}
+            color_dict = {obj_dicts['name'][0] : 'blue'}
         for polygon, name in zip(obj_dicts['polygons'], obj_dicts['name']):
-            img = self.draw_polygon(img, polygon, name, color_dict['name'])
+            img = self.draw_polygon(img, polygon, name, color_dict[name])
         return img
 
     def draw_mask(self, img, obj_dicts, color_dict = None, single_channel = False):

@@ -166,9 +166,9 @@ def hyperparams2yaml(path, context, backup_file = True):
     return osp.join(path, 'yaml', '%s'%f_time)
 
 def yaml2hyperparams(args):
-    if osp.exists(args.config):
+    if osp.exists(args.config_obj):
         opt = vars(args)
-        args = yaml.load(open(args.config), Loader = yaml.FullLoader)
+        args = yaml.load(open(args.config_obj), Loader = yaml.FullLoader)
         opt.update(args)
         args = argparse.Namespace(**opt)
 

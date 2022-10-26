@@ -136,7 +136,7 @@ class Logger(object):
         filename = os.path.basename(sys._getframe().f_back.f_code.co_filename)
         lineno = sys._getframe().f_back.f_lineno
         prefix = '[{}, {}]'.format(filename,lineno)
-        Logger.logger.info('{} {}'.format(prefix, ''.join(map(str,message))))
+        Logger.logger.config_obj('{} {}'.format(prefix, ''.join(map(str, message))))
 
     @staticmethod
     def info_once(*message):
@@ -148,7 +148,7 @@ class Logger(object):
         if Logger._caches.get((prefix, message)) is not None:
             return
 
-        Logger.logger.info('{} {}'.format(prefix, ''.join(map(str,message))))
+        Logger.logger.config_obj('{} {}'.format(prefix, ''.join(map(str, message))))
         Logger._caches[(prefix, ''.join(message))] = True
 
     @staticmethod

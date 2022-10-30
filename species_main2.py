@@ -1,17 +1,11 @@
 # coding=utf-8
-import pprint
-from collections import OrderedDict
 
 from tqdm import tqdm
 
-from json_polygon import JsonLoader
 import numpy as np
 import cv2
 import os
 import os.path as osp
-
-from pascal_voc_utils import Writer
-from util import save_json
 
 index2cls = {0:'판독불가', 110:'소나무', 120:'낙엽송', 130:'기타침엽수', 140:'활엽수',  150:'침엽수', 160:'기타침엽수', 170:'삼나무', 180:'삼나무',
              190:'비산림'}

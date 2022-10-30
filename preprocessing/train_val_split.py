@@ -6,10 +6,10 @@ import shutil
 from collections import defaultdict
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold, ShuffleSplit
+from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 
-from pascal_voc_utils import Reader
+from misc.pascal_voc_utils import Reader
 
 
 def split_disease_noDisease(path, target):

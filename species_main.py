@@ -1,17 +1,16 @@
 # coding=utf-8
-import pprint
 from collections import OrderedDict
 
 from tqdm import tqdm
 
-from json_polygon import JsonLoader
+from preprocessing.json_polygon import JsonLoader
 import numpy as np
 import cv2
 import os
 import os.path as osp
 
-from pascal_voc_utils import Writer
-from util import save_json
+from misc.pascal_voc_utils import Writer
+from misc.util import save_json
 
 
 def get_objects(contexts):

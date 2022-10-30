@@ -108,8 +108,8 @@ def load_h5(path, key):
 
 
 import sys
-sys.path.append('./')
 sys.path.append('../')
+sys.path.append('../../')
 import os.path as osp
 def bbox_counter(path):
     counter = defaultdict(int)
@@ -175,7 +175,7 @@ def yaml2hyperparams(args):
     return args
 
 def backup(path, base_path = None, suffixs = ['py', 'yaml'], exclude_folder_names = ['output', '.idea']):
-    base_path = osp.join(osp.dirname(osp.abspath(__file__)), '../') if base_path is None else base_path
+    base_path = osp.join(osp.dirname(osp.abspath(__file__)), '../../') if base_path is None else base_path
 
     zipf = zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED)
     for root, _, filenames in os.walk(base_path):
@@ -185,7 +185,7 @@ def backup(path, base_path = None, suffixs = ['py', 'yaml'], exclude_folder_name
                 if filename.split('.')[-1] in suffixs:
                     zipf.write(os.path.join(root, filename),
                                os.path.relpath(os.path.join(root, filename),
-                                               os.path.join(base_path, '..')))
+                                               os.path.join(base_path, '../..')))
     zipf.close()
 
 

@@ -3,10 +3,10 @@
 import sys
 
 from json_polygon import JsonLoader
-from pascal_voc_utils import Reader, Writer
+from misc.pascal_voc_utils import Reader, Writer
 
-sys.path.append('./')
 sys.path.append('../')
+sys.path.append('../../')
 import os
 import os.path as osp
 

@@ -1,9 +1,9 @@
 # coding=utf-8
 from tqdm import tqdm
 import cv2.cv2
-from json_polygon import JsonLoader
-from pascal_voc_utils import Writer
-from util import load_json, namespace2dict, save_json
+from preprocessing.json_polygon import JsonLoader
+from misc.pascal_voc_utils import Writer
+from misc.util import namespace2dict, save_json
 import os.path as osp
 import os
 

@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import os.path as osp
 
-from pascal_voc_utils import Writer
+from misc.pascal_voc_utils import Writer
 
 
 def generate_trainVal_folders(fold_path, target_path, img_dir, train_fold = ['0', '1', '2', '3'], val_fold = ['4'],

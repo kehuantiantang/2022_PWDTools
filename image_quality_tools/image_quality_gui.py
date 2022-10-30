@@ -1,17 +1,97 @@
 # coding=utf-8
+import datetime
+import json
 import os.path
 import sys
-from misc import util as cv2
+from collections import defaultdict
+
+
+from easydict import EasyDict as edict
+import cv2
 from PyQt5.QtCore import Qt, QRectF, pyqtSignal, QT_VERSION_STR
 from PyQt5.QtGui import QImage, QPixmap, QIntValidator
-from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog, QWidget, QVBoxLayout, QHBoxLayout, \
+from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog, QWidget, QToolButton, QVBoxLayout, QHBoxLayout, \
     QLabel, QSlider, QLineEdit
 import os.path as osp
 from PyQt5.QtWidgets import QApplication
 
-from vis_gui.json_polygon import JsonLoader
+class ConfigUtil(object):
+    def __init__(self, config):
+        self.config = config
+        self.get_record(config)
 
-jl = JsonLoader()
+    def get_record(self, config):
+        if osp.exists('../.gui_config'):
+            with open('../.gui_config', 'r', encoding='utf-8') as f:
+                old_config =  edict(json.load(f))
+                if config.total != old_config.total or config.source_path != old_config.source_path or config.target_path != old_config.target_path:
+                    pass
+                else:
+                    config.index, config.name, config.target_path = old_config.index, old_config.name, old_config.target_path
+        self.config = config
+
+
+    def write_record(self):
+        with open('../.gui_config', 'w', encoding='utf-8') as f:
+            json.dump({'source_path': self.config.source_path, 'index': self.config.index, 'target_path':
+                self.config.target_path,
+                       'total':self.config.total,
+                       'name':self.config.name}, f, indent=6)
+
+    def update(self, item = None):
+        if item is not None:
+            for k, v in item.items():
+                self.config[k] = v
+        self.write_record()
+
+class BBoxUtil(object):
+    def __init__(self, path):
+        self.bboxs = self.load_bbox(path)
+
+    def load_bbox(self, path):
+        '''
+            TODO bbox should include the flag
+            reorganized the bbox structure
+            bboxs = {0: {'bbox':[xmin, ymin, xmax, ymax], 'difficult': False, 'label': gt or predict}}
+        :param path:
+        :return:
+        '''
+        bboxs = defaultdict(dict)
+        return bboxs
+
+    def __get_distance(self, point1, point2):
+        x1, y1 = point1
+        x2, y2 = point2
+        return (x1 - x2)^2 + (y1 - y2)^2
+
+    def set_selected(self, index):
+        """
+        if the click position has bbox:
+            1. if the bbox has not selected, it will selected.
+            2. otherwise, the selection will cancel
+        :param index:
+        :return:
+        """
+        self.bboxs[index]['difficult'] = not self.bboxs[index]['difficult']
+
+    def select_bbox(self, x, y):
+        selected_bbox = []
+        for index, value in self.bboxs.items():
+            xmin, ymin, xmax, ymax = value['bbox']
+            center = (xmax - xmin, ymax - ymin)
+            if xmin <= x <= xmax and ymin <= y <= ymax:
+                selected_bbox.append((center, index))
+
+        nearest_one, min_distance = None, sys.maxsize
+        for center, index in selected_bbox:
+            distance = self.__get_distance(center, (x, y))
+            if distance < min_distance:
+                min_distance = distance
+                nearest_one = index
+        self.set_selected(nearest_one)
+        return self.bboxs
+
+
 
 class QtImageViewer(QGraphicsView):
     """ PyQt image viewer widget for a QPixmap in a QGraphicsView scene with mouse zooming and panning.
@@ -36,24 +116,19 @@ class QtImageViewer(QGraphicsView):
     rightMouseButtonDoubleClicked = pyqtSignal(float, float)
 
 
-    def get_all_image(self, path):
-        self.image_paths = []
-        for root, _, files in os.walk(path):
-            for file in sorted(files):
-                if file.lower().split('.')[-1] in ['jpg', 'png', 'jpeg']:
-                    self.image_paths.append((file.split('.')[0], osp.join(root, file)))
-
-
-    def get_image(self, index):
+    def __get_image(self, index):
         name, path = self.image_paths[index]
         assert osp.exists(path)
         return name, path
 
-    def __init__(self, file_path, save_method, txt_save_path, canZoom = False, canPan = False):
-        self.save = save_method
-        self.get_all_image(file_path)
 
-        self.index, self.name, self.txt_save_path = 0, '', txt_save_path
+    def __init__(self, save_method, image_paths, config_obj, canZoom = False, canPan = False):
+        self.save = save_method
+        self.image_paths = image_paths
+        self.config_obj = config_obj
+        self.index = config_obj.config.index
+
+
         # Store a local handle to the scene's current image pixmap.
         self._pixmapHandle = None
         # Image aspect ratio mode.
@@ -64,7 +139,6 @@ class QtImageViewer(QGraphicsView):
         self.aspectRatioMode = Qt.KeepAspectRatio
 
         path = self.init()
-        self.set_attributes(None)
 
         self.scene = QGraphicsScene()
         self.zoomStack = []
@@ -94,9 +168,8 @@ class QtImageViewer(QGraphicsView):
         self.rightMouseButtonDoubleClicked.connect(self.handleDoubleRightClick)
 
 
-
     def init(self):
-        name, path = self.get_image(self.index)
+        name, path = self.__get_image(self.index)
         self.name = name
         return path
 
@@ -159,9 +232,7 @@ class QtImageViewer(QGraphicsView):
         if len(fileName) and os.path.isfile(fileName):
             img = cv2.imread(fileName)
 
-            # boxes, polygon image
-            img = jl.draw_bboxes(img, self.attributes)
-            # img = jl.draw_polygons(img, self.attributes)
+            # # boxes, polygon image
             h, w, c = img.shape
 
             img = img[..., ::-1].copy()
@@ -195,60 +266,68 @@ class QtImageViewer(QGraphicsView):
                 self.zoomStack = []  # Clear zoom stack.
                 self.updateViewer()
             self.rightMouseButtonDoubleClicked.emit(scenePos.x(), scenePos.y())
-        QGraphicsView.mouseDoubleClickEvent(self, event)
-
+        return QGraphicsView.mouseDoubleClickEvent(self, event)
 
     def handleDoubleLeftClick(self, x, y):
         index = max(0, self.index -1)
-        name, filepath = self.get_image(index)
+        name, filepath = self.__get_image(index)
         self.index, self.name = index, name
         self.save((self.name, self.index), (name, index))
-        self.set_attributes(None)
         self.loadImageFromFile(filepath)
-        # current, next status
 
+        self.config_obj.update({'name':self.name, 'index':self.index})
 
     def handleDoubleRightClick(self, x, y):
         index = min(len(self.image_paths) - 1, self.index +1)
-        name, filepath = self.get_image(index)
+        name, filepath = self.__get_image(index)
         self.index, self.name = index, name
         self.save((self.name, self.index), (name, index))
-        self.set_attributes(None)
         self.loadImageFromFile(filepath)
-        # current, next status
+
+        self.config_obj.update({'name':self.name, 'index':self.index})
 
     def image_change(self):
         """
         change visible image according to index
         """
-        name, filepath = self.get_image(self.index)
+        name, filepath = self.__get_image(self.index)
         self.name = name
         self.save((self.name, self.index), (self.name, self.index))
-        self.set_attributes(None)
         self.loadImageFromFile(filepath)
+
+        self.config_obj.update({'name':self.name, 'index':self.index})
 
     def set_current_index(self, index):
         self.index = min(max(0, index), len(self.image_paths) - 1)
 
+
     def get_current_index(self):
         return self.index
 
-    def set_attributes(self, attributes):
-        if attributes is None:
-            p = osp.join(self.txt_save_path, self.name + '.json')
-            attributes = None
-            if osp.exists(p):
-                context = jl.load_json(p)
-                attributes = jl.get_objects(context)
-        self.attributes = attributes
+
 
 class Window(QWidget):
-    def __init__(self, file_path, txt_save_path, labels):
-        super(Window, self).__init__()
-        self.labels = labels
 
-        self.txt_save_path = txt_save_path
-        self.viewer = QtImageViewer(file_path, self.do_action, txt_save_path)
+    def get_img_paths(self, path):
+        image_paths = []
+        for root, _, files in os.walk(path):
+            for file in sorted(files):
+                if file.lower().split('.')[-1] in ['jpg', 'png', 'jpeg', 'tif']:
+                    image_paths.append((file.split('.')[0], osp.join(root, file)))
+        return image_paths
+
+
+    def __init__(self, source_path, target_path):
+        super(Window, self).__init__()
+        image_paths = self.get_img_paths(source_path)
+        self.config_obj = ConfigUtil(edict({'source_path': source_path, 'index': 0, 'target_path': target_path,
+                                         'total':len(image_paths),
+                                        'name':''}))
+        self.viewer = QtImageViewer(self.do_action, image_paths, self.config_obj)
+        self.viewer.setFocusPolicy(Qt.NoFocus)
+        os.makedirs(target_path, exist_ok=True)
+        self.f = open(osp.join(target_path, '../bg.txt'), 'a', encoding='utf-8')
+
 
         self.current_index = None
         self.init_bottom()
@@ -273,6 +352,7 @@ class Window(QWidget):
 
         # init-
         self.do_action((self.viewer.name, self.viewer.index), (self.viewer.name, self.viewer.index))
+        self.qLabel.setText(self.viewer.name)
 
     def push_save_button(self):
         self.do_action((self.viewer.name, self.viewer.index), (self.viewer.name, self.viewer.index))
@@ -284,48 +364,37 @@ class Window(QWidget):
         :param next:
         :return:
         '''
-        print('Do action', current, next)
+        self.current_filename = current[0]
         n_name, n_index = next
-        # next status
-
         self.qLabel.setText(n_name)
-        self.viewer.set_attributes(self.load_json(n_name))
+        self.input_index.setText('%s/%s'%(n_index, len(self.viewer.image_paths)))
+
+
 
     def init_bottom(self):
         self.slide = QSlider(Qt.Horizontal, self)
         self.input_index = QLineEdit(self)
-        self.input_index.setText('0')
+        self.input_index.setText('%s/%s'%(0, len(self.viewer.image_paths)))
+        self.input_index.setReadOnly(True)
         self.input_index.setValidator(QIntValidator())
-        self.input_index.editingFinished.connect(self.inputChange)
 
-        # self.save.clicked.connect(self.push_save_button)
         self.slide.setMinimum(0)
         self.slide.setMaximum(len(self.viewer.image_paths))
         self.slide.setSingleStep(1)
+        self.slide.setValue(self.config_obj.config.index)
         self.slide.setTickPosition(QSlider.TicksBelow)
         #设置刻度间距
         self.slide.setTickInterval(max(10, len(self.viewer.image_paths) // 10))
         self.slide.valueChanged.connect(self.slideChange)
 
-    def init_attributes(self):
-        return self.load_json(self.viewer.name)
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Space:
+            self.f.write('%s\n'%self.current_filename)
+            self.f.flush()
+            print('%s %s %s'%(datetime.datetime.now(), self.viewer.index, self.current_filename))
+        self.config_obj.update()
+        return super(Window, self).keyPressEvent(e)
 
-    def load_json(self, name):
-        p = osp.join(self.txt_save_path, name + '.json')
-        attributes = None
-        if osp.exists(p):
-            context = jl.load_json(p)
-            attributes = jl.get_objects(context)
-        return attributes
-
-    def inputChange(self):
-        index = int(self.input_index.text())
-        if index != self.current_index:
-            self.current_index = index
-            self.viewer.set_current_index(index)
-            self.viewer.image_change()
-            # self.input_index.setText(str(index))
-            self.slide.setValue(self.viewer.index)
 
     def slideChange(self):
         index = self.slide.value()
@@ -333,8 +402,15 @@ class Window(QWidget):
             self.current_index = index
             self.viewer.set_current_index(index)
             self.viewer.image_change()
-            self.input_index.setText(str(index))
-            # self.slide.setValue(self.viewer.index)
+            self.input_index.setText('%s/%s'%(str(index), len(self.viewer.image_paths)))
+
+
+    def closeEvent(self, event):
+        print('closed!', '*'*10)
+        self.f.close()
+        self.config_obj.update()
+        return super().closeEvent(event)
+
 
 if __name__ == '__main__':
 
@@ -343,14 +419,10 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     # Create image viewer and load an image file to display.
-    viewer = Window(file_path = r"H:\quality_assessment", txt_save_path = r"H:\quality_assessment", labels=  ['flower', 'fruit', 'leaf', 'stem or runner', 'crown'])
+    viewer = Window(source_path="/Users/sober/Downloads/Project/pwd2022_test_all", target_path="../")
 
-    viewer.setFixedSize(int(512*1.8), int(512*1.8))
+    viewer.setFixedSize(800, 800)
     # Show viewer and run application.
     viewer.show()
     sys.exit(app.exec_())
 
-    # contexts = load_json('/Users/sober/Downloads/Project/4ai_dataset/01_01_00000021.json')
-    # print(contexts)
-    # for object in contexts.segmentations:
-    #     class_id = object.data.ID

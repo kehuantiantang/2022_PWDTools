@@ -1,345 +1,100 @@
 # coding=utf-8
-import datetime
-import json
+import os
 import os.path
 import sys
-from collections import defaultdict
+import traceback
 
-
-from easydict import EasyDict as edict
-import cv2
-from PyQt5.QtCore import Qt, QRectF, pyqtSignal, QT_VERSION_STR
-from PyQt5.QtGui import QImage, QPixmap, QIntValidator
-from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog, QWidget, QToolButton, QVBoxLayout, QHBoxLayout, \
-    QLabel, QSlider, QLineEdit
+from tqdm import tqdm
+from PyQt5 import QtGui
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSlider, QMessageBox, QFileDialog, QProgressDialog, \
+    QMainWindow
 import os.path as osp
 from PyQt5.QtWidgets import QApplication
 
-class ConfigUtil(object):
-    def __init__(self, config):
-        self.config = config
-        self.get_record(config)
-
-    def get_record(self, config):
-        if osp.exists('../.gui_config'):
-            with open('../.gui_config', 'r', encoding='utf-8') as f:
-                old_config =  edict(json.load(f))
-                if config.total != old_config.total or config.source_path != old_config.source_path or config.target_path != old_config.target_path:
-                    pass
-                else:
-                    config.index, config.name, config.target_path = old_config.index, old_config.name, old_config.target_path
-        self.config = config
-
-
-    def write_record(self):
-        with open('../.gui_config', 'w', encoding='utf-8') as f:
-            json.dump({'source_path': self.config.source_path, 'index': self.config.index, 'target_path':
-                self.config.target_path,
-                       'total':self.config.total,
-                       'name':self.config.name}, f, indent=6)
-
-    def update(self, item = None):
-        if item is not None:
-            for k, v in item.items():
-                self.config[k] = v
-        self.write_record()
-
-class BBoxUtil(object):
-    def __init__(self, path):
-        self.bboxs = self.load_bbox(path)
-
-    def load_bbox(self, path):
-        '''
-            TODO bbox should include the flag
-            reorganized the bbox structure
-            bboxs = {0: {'bbox':[xmin, ymin, xmax, ymax], 'difficult': False, 'label': gt or predict}}
-        :param path:
-        :return:
-        '''
-        bboxs = defaultdict(dict)
-        return bboxs
-
-    def __get_distance(self, point1, point2):
-        x1, y1 = point1
-        x2, y2 = point2
-        return (x1 - x2)^2 + (y1 - y2)^2
-
-    def set_selected(self, index):
-        """
-        if the click position has bbox:
-            1. if the bbox has not selected, it will selected.
-            2. otherwise, the selection will cancel
-        :param index:
-        :return:
-        """
-        self.bboxs[index]['difficult'] = not self.bboxs[index]['difficult']
-
-    def select_bbox(self, x, y):
-        selected_bbox = []
-        for index, value in self.bboxs.items():
-            xmin, ymin, xmax, ymax = value['bbox']
-            center = (xmax - xmin, ymax - ymin)
-            if xmin <= x <= xmax and ymin <= y <= ymax:
-                selected_bbox.append((center, index))
-
-        nearest_one, min_distance = None, sys.maxsize
-        for center, index in selected_bbox:
-            distance = self.__get_distance(center, (x, y))
-            if distance < min_distance:
-                min_distance = distance
-                nearest_one = index
-        self.set_selected(nearest_one)
-        return self.bboxs
-
-
-
-class QtImageViewer(QGraphicsView):
-    """ PyQt image viewer widget for a QPixmap in a QGraphicsView scene with mouse zooming and panning.
-    Displays a QImage or QPixmap (QImage is internally converted to a QPixmap).
-    To display any other image format, you must first convert it to a QImage or QPixmap.
-    Some useful image format conversion utilities:
-        qimage2ndarray: NumPy ndarray <==> QImage    (https://github.com/hmeine/qimage2ndarray)
-        ImageQt: PIL Image <==> QImage  (https://github.com/python-pillow/Pillow/blob/master/PIL/ImageQt.py)
-    Mouse interaction:
-        Left mouse button drag: Pan image.
-        Right mouse button drag: Zoom box.
-        Right mouse button doubleclick: Zoom to show entire image.
-    """
-
-    # Mouse button signals emit image scene (x, y) coordinates.
-    # !!! For image (row, column) matrix indexing, row = y and column = x.
-    leftMouseButtonPressed = pyqtSignal(float, float)
-    rightMouseButtonPressed = pyqtSignal(float, float)
-    leftMouseButtonReleased = pyqtSignal(float, float)
-    rightMouseButtonReleased = pyqtSignal(float, float)
-    leftMouseButtonDoubleClicked = pyqtSignal(float, float)
-    rightMouseButtonDoubleClicked = pyqtSignal(float, float)
-
-
-    def __get_image(self, index):
-        name, path = self.image_paths[index]
-        assert osp.exists(path)
-        return name, path
-
-
-    def __init__(self, save_method, image_paths, config_obj, canZoom = False, canPan = False):
-        self.save = save_method
-        self.image_paths = image_paths
-        self.config_obj = config_obj
-        self.index = config_obj.config.index
-
-
-        # Store a local handle to the scene's current image pixmap.
-        self._pixmapHandle = None
-        # Image aspect ratio mode.
-        # !!! ONLY applies to full image. Aspect ratio is always ignored when zooming.
-        #   Qt.IgnoreAspectRatio: Scale image to fit viewport.
-        #   Qt.KeepAspectRatio: Scale image to fit inside viewport, preserving aspect ratio.
-        #   Qt.KeepAspectRatioByExpanding: Scale image to fill the viewport, preserving aspect ratio.
-        self.aspectRatioMode = Qt.KeepAspectRatio
-
-        path = self.init()
-
-        self.scene = QGraphicsScene()
-        self.zoomStack = []
-
-        # Image is displayed as a QPixmap in a QGraphicsScene attached to this QGraphicsView.
-        QGraphicsView.__init__(self)
-        self.loadImageFromFile(path)
-
-        self.setScene(self.scene)
-
-
-        # Scroll bar behaviour.
-        #   Qt.ScrollBarAlwaysOff: Never shows a scroll bar.
-        #   Qt.ScrollBarAlwaysOn: Always shows a scroll bar.
-        #   Qt.ScrollBarAsNeeded: Shows a scroll bar only when zoomed.
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-        # Stack of QRectF zoom boxes in scene coordinates.
-
-
-        # Flags for enabling/disabling mouse interaction.
-        self.canZoom = canZoom
-        self.canPan = canPan
-
-        self.leftMouseButtonDoubleClicked.connect(self.handleDoubleLeftClick)
-        self.rightMouseButtonDoubleClicked.connect(self.handleDoubleRightClick)
-
-
-    def init(self):
-        name, path = self.__get_image(self.index)
-        self.name = name
-        return path
-
-    def hasImage(self):
-        """ Returns whether or not the scene contains an image pixmap.
-        """
-        return self._pixmapHandle is not None
-
-    def clearImage(self):
-        """ Removes the current image pixmap from the scene if it exists.
-        """
-        if self.hasImage():
-            self.scene.removeItem(self._pixmapHandle)
-            self._pixmapHandle = None
-
-    def pixmap(self):
-        """ Returns the scene's current image pixmap as a QPixmap, or else None if no image exists.
-        :rtype: QPixmap | None
-        """
-        if self.hasImage():
-            return self._pixmapHandle.pixmap()
-        return None
-
-    def image(self):
-        """ Returns the scene's current image pixmap as a QImage, or else None if no image exists.
-        :rtype: QImage | None
-        """
-        if self.hasImage():
-            return self._pixmapHandle.pixmap().toImage()
-        return None
-
-    def setImage(self, image):
-        """ Set the scene's current image pixmap to the input QImage or QPixmap.
-        Raises a RuntimeError if the input image has type other than QImage or QPixmap.
-        :type image: QImage | QPixmap
-        """
-        if type(image) is QPixmap:
-            pixmap = image
-        elif type(image) is QImage:
-            pixmap = QPixmap.fromImage(image)
-        else:
-            raise RuntimeError("ImageViewer.setImage: Argument must be a QImage or QPixmap.")
-        if self.hasImage():
-            self._pixmapHandle.setPixmap(pixmap)
-        else:
-            self._pixmapHandle = self.scene.addPixmap(pixmap)
-        self.setSceneRect(QRectF(pixmap.rect()))  # Set scene size to image size.
-        self.updateViewer()
-
-    def loadImageFromFile(self, fileName=""):
-        """ Load an image from file.
-        Without any arguments, loadImageFromFile() will popup a file dialog to choose the image file.
-        With a fileName argument, loadImageFromFile(fileName) will attempt to load the specified image file directly.
-        """
-        if len(fileName) == 0:
-            if QT_VERSION_STR[0] == '4':
-                fileName = QFileDialog.getOpenFileName(self, "Open image file.")
-            elif QT_VERSION_STR[0] == '5':
-                fileName, dummy = QFileDialog.getOpenFileName(self, "Open image file.")
-        if len(fileName) and os.path.isfile(fileName):
-            img = cv2.imread(fileName)
-
-            # # boxes, polygon image
-            h, w, c = img.shape
-
-            img = img[..., ::-1].copy()
-            image = QImage(img.data, h, w,  3*h, QImage.Format_RGB888)
-            self.setImage(image)
-
-    def updateViewer(self):
-        """ Show current zoom (if showing entire image, apply current aspect ratio mode).
-        """
-        if not self.hasImage():
-            return
-        if len(self.zoomStack) and self.sceneRect().contains(self.zoomStack[-1]):
-            self.fitInView(self.zoomStack[-1], Qt.IgnoreAspectRatio)  # Show zoomed rect (ignore aspect ratio).
-        else:
-            self.zoomStack = []  # Clear the zoom stack (in case we got here because of an invalid zoom).
-            self.fitInView(self.sceneRect(), self.aspectRatioMode)  # Show entire image (use current aspect ratio mode).
-
-    def resizeEvent(self, event):
-        """ Maintain current zoom on resize.
-        """
-        self.updateViewer()
-
-    def mouseDoubleClickEvent(self, event):
-        """ Show entire image.
-        """
-        scenePos = self.mapToScene(event.pos())
-        if event.button() == Qt.LeftButton:
-            self.leftMouseButtonDoubleClicked.emit(scenePos.x(), scenePos.y())
-        elif event.button() == Qt.RightButton:
-            if self.canZoom:
-                self.zoomStack = []  # Clear zoom stack.
-                self.updateViewer()
-            self.rightMouseButtonDoubleClicked.emit(scenePos.x(), scenePos.y())
-        return QGraphicsView.mouseDoubleClickEvent(self, event)
-
-    def handleDoubleLeftClick(self, x, y):
-        index = max(0, self.index -1)
-        name, filepath = self.__get_image(index)
-        self.index, self.name = index, name
-        self.save((self.name, self.index), (name, index))
-        self.loadImageFromFile(filepath)
-
-        self.config_obj.update({'name':self.name, 'index':self.index})
-
-    def handleDoubleRightClick(self, x, y):
-        index = min(len(self.image_paths) - 1, self.index +1)
-        name, filepath = self.__get_image(index)
-        self.index, self.name = index, name
-        self.save((self.name, self.index), (name, index))
-        self.loadImageFromFile(filepath)
-
-        self.config_obj.update({'name':self.name, 'index':self.index})
-
-    def image_change(self):
-        """
-        change visible image according to index
-        """
-        name, filepath = self.__get_image(self.index)
-        self.name = name
-        self.save((self.name, self.index), (self.name, self.index))
-        self.loadImageFromFile(filepath)
-
-        self.config_obj.update({'name':self.name, 'index':self.index})
-
-    def set_current_index(self, index):
-        self.index = min(max(0, index), len(self.image_paths) - 1)
-
-
-    def get_current_index(self):
-        return self.index
-
+from components import CheckLabel, QSlideReadOnly, TitleLabel, UpdateLineEdit, QtImageViewer
+from misc import ConfigUtil, get_resource_path
 
 
 class Window(QWidget):
 
-    def get_img_paths(self, path):
-        image_paths = []
-        for root, _, files in os.walk(path):
-            for file in sorted(files):
-                if file.lower().split('.')[-1] in ['jpg', 'png', 'jpeg', 'tif']:
-                    image_paths.append((file.split('.')[0], osp.join(root, file)))
-        return image_paths
+    def get_names(self, path):
+        # assert osp.exists(path), 'Input path must exist! %s'%path
+        # name_paths = []
+        # for file in os.listdir(path):
+        #     if file.lower().split('.')[-1] in ['jpg', 'png', 'jpeg', 'tif'] and '_vis' not in file.lower().split(
+        #             '.')[0]:
+        #         name = file.split('.')[0]
+        #         img_path = osp.join(path, file)
+        #         json_path = osp.join(path, '%s.json'%name)
+        #         # assert osp.exists(json_path), 'The json file %s must exist!'%json_path
+        #         # name, img_path, json_path
+        #         if osp.exists(json_path):
+        #             name_paths.append((name, img_path, json_path))
+        # return name_paths
+
+        get_name_dialog = QProgressDialog()
+        get_name_dialog.setWindowModality(Qt.WindowModal)
+        get_name_dialog.setMinimumDuration(0)
+        get_name_dialog.setWindowTitle('Warning')
+        get_name_dialog.setLabelText('Reading files, please wait a moment...')
+        get_name_dialog.setRange(0, 100)
+
+        assert osp.exists(path), 'Input path must exist! %s' % path
+        name_paths = []
+        files = os.listdir(path)
+        for i, file in enumerate(files):
+            if file.lower().split('.')[-1] in ['jpg', 'png', 'jpeg', 'tif'] and '_vis' not in file.lower().split('.')[
+                0]:
+                name = file.split('.')[0]
+                img_path = osp.join(path, file)
+                json_path = osp.join(path, '%s.json' % name)
+                # assert osp.exists(json_path), 'The json file %s must exist!'%json_path
+                # name, img_path, json_path
+                if osp.exists(json_path):
+                    name_paths.append((name, img_path, json_path))
+
+                if get_name_dialog.wasCanceled():
+                    sys.exit(0)
+
+                get_name_dialog.setValue(int(i * 100.0 / len(files)))
+        get_name_dialog.close()
+
+        return name_paths
 
 
-    def __init__(self, source_path, target_path):
-        super(Window, self).__init__()
-        image_paths = self.get_img_paths(source_path)
-        self.config_obj = ConfigUtil(edict({'source_path': source_path, 'index': 0, 'target_path': target_path,
-                                         'total':len(image_paths),
-                                        'name':''}))
-        self.viewer = QtImageViewer(self.do_action, image_paths, self.config_obj)
-        self.viewer.setFocusPolicy(Qt.NoFocus)
-        os.makedirs(target_path, exist_ok=True)
-        self.f = open(osp.join(target_path, '../bg.txt'), 'a', encoding='utf-8')
+    def init_above(self):
+
+        self.titleLabel = TitleLabel(name=self.image_viewer.name)
+        self.checkedLabel = CheckLabel(name=self.image_viewer.name, assessment=self.config_obj.config['assessment'])
 
 
-        self.current_index = None
-        self.init_bottom()
+        TitleHBLayer = QHBoxLayout()
+        # TitleHBLayer.setAlignment(Qt.AlignRight)
+        TitleHBLayer.addWidget(self.titleLabel)
+        TitleHBLayer.addWidget(self.checkedLabel)
+        TitleHBLayer.setStretchFactor(self.titleLabel, 5)
+        TitleHBLayer.setStretchFactor(self.checkedLabel, 5)
 
-        self.qLabel = QLabel(self.viewer.name)
-        # self.qLabel.setBold(True)
-        self.qLabel.setStyleSheet("font: 20pt;")
+        return TitleHBLayer
 
-        VBlayout = QVBoxLayout(self)
-        VBlayout.addWidget(self.qLabel)
-        VBlayout.addWidget(self.viewer)
+    @property
+    def init_bottom(self):
+        self.input_index = UpdateLineEdit(index = self.config_obj.config['index'], total = self.config_obj.config[
+            'total'])
 
+
+        self.slide = QSlideReadOnly(Qt.Horizontal, self)
+        self.slide.setMinimum(0)
+        self.slide.setMaximum(len(self.image_viewer.image_paths) -1)
+        self.slide.setSingleStep(1)
+        self.slide.setValue(self.config_obj.config['index'])
+        self.slide.setTickPosition(QSlider.TicksBelow)
+
+        #设置刻度间距
+        self.slide.setTickInterval(max(10, len(self.image_viewer.image_paths) // 10))
+        self.slide.valueChanged.connect(self.slideChange)
 
         BottomHBLayer = QHBoxLayout()
         BottomHBLayer.setAlignment(Qt.AlignRight)
@@ -348,81 +103,155 @@ class Window(QWidget):
         BottomHBLayer.setStretchFactor(self.slide, 9)
         BottomHBLayer.setStretchFactor(self.input_index, 1)
 
-        VBlayout.addLayout(BottomHBLayer)
+        return BottomHBLayer
 
-        # init-
-        self.do_action((self.viewer.name, self.viewer.index), (self.viewer.name, self.viewer.index))
-        self.qLabel.setText(self.viewer.name)
+    def __init__(self, source_path, target_path):
+        super(Window, self).__init__()
+        self.old_hook = sys.excepthook
+        sys.excepthook = self.catch_exceptions
 
-    def push_save_button(self):
-        self.do_action((self.viewer.name, self.viewer.index), (self.viewer.name, self.viewer.index))
+        self.setWindowIcon(QtGui.QIcon(get_resource_path('logo.ico')))
 
-    def do_action(self, current, next):
-        '''
-        做一些操作，比如保存文件，或者是读取下一个目录
-        :param current:
-        :param next:
-        :return:
-        '''
-        self.current_filename = current[0]
-        n_name, n_index = next
-        self.qLabel.setText(n_name)
-        self.input_index.setText('%s/%s'%(n_index, len(self.viewer.image_paths)))
+        self.image_paths = self.get_names(source_path)
+        assert len(self.image_paths) > 0, 'Selected folder must include the image and json file'
+        self.config_obj = ConfigUtil({'source_path': source_path, 'index': 0, 'target_path': target_path,
+                                         'total':len(self.image_paths),
+                                        'name':self.image_paths[0][0], 'assessment': {}})
+        self.image_viewer = QtImageViewer(None, self.image_paths, self.config_obj)
+        self.image_viewer.setFocusPolicy(Qt.NoFocus)
+        os.makedirs(target_path, exist_ok=True)
 
 
+        self.current_index = self.config_obj.config['index']
+        AboveHBLayer = self.init_above()
+        BottomHBLayer = self.init_bottom
 
-    def init_bottom(self):
-        self.slide = QSlider(Qt.Horizontal, self)
-        self.input_index = QLineEdit(self)
-        self.input_index.setText('%s/%s'%(0, len(self.viewer.image_paths)))
-        self.input_index.setReadOnly(True)
-        self.input_index.setValidator(QIntValidator())
+        self.layout = QVBoxLayout()
+        self.layout.addLayout(AboveHBLayer)
+        self.layout.addWidget(self.image_viewer)
+        self.layout.addLayout(BottomHBLayer)
 
-        self.slide.setMinimum(0)
-        self.slide.setMaximum(len(self.viewer.image_paths))
-        self.slide.setSingleStep(1)
-        self.slide.setValue(self.config_obj.config.index)
-        self.slide.setTickPosition(QSlider.TicksBelow)
-        #设置刻度间距
-        self.slide.setTickInterval(max(10, len(self.viewer.image_paths) // 10))
-        self.slide.valueChanged.connect(self.slideChange)
+        self.setLayout(self.layout)
+
+
+        self.config_obj.add_update_widget(self.checkedLabel, ('name', 'assessment'))
+        self.config_obj.add_update_widget(self.titleLabel, ('name', ))
+        self.config_obj.add_update_widget(self.input_index, ('index', 'total'))
+
+
+
 
     def keyPressEvent(self, e):
-        if e.key() == Qt.Key_Space:
-            self.f.write('%s\n'%self.current_filename)
-            self.f.flush()
-            print('%s %s %s'%(datetime.datetime.now(), self.viewer.index, self.current_filename))
-        self.config_obj.update()
-        return super(Window, self).keyPressEvent(e)
+        # print(e.key())
+        if e.key() == Qt.Key_QuoteLeft:
+            self.config_obj.update({'name':self.image_viewer.name, 'index':self.image_viewer.index, 'assessment':(self.image_viewer.name,
+                                                                                                                  0)})
+            self.slide.setValue(min(self.image_viewer.index + 1, self.config_obj.config['total'] - 1))
+            # print(0)
+        elif e.key() == Qt.Key_1:
+            self.config_obj.update({'name':self.image_viewer.name, 'index':self.image_viewer.index, 'assessment':(self.image_viewer.name,
+                                                                                                                  1)})
+            self.slide.setValue(min(self.image_viewer.index + 1, self.config_obj.config['total'] - 1))
+            # print(1)
+        elif e.key() == Qt.Key_2:
+            self.config_obj.update({'name':self.image_viewer.name, 'index':self.image_viewer.index, 'assessment':(self.image_viewer.name,
+                                                                                                                  2)})
+            self.slide.setValue(min(self.image_viewer.index + 1, self.config_obj.config['total'] - 1))
+            # print(2)
+        elif e.key() == Qt.Key_3:
+            self.config_obj.update({'name':self.image_viewer.name, 'index':self.image_viewer.index, 'assessment':(self.image_viewer.name,
+                                                                                                                  3)})
+            self.slide.setValue(min(self.image_viewer.index + 1, self.config_obj.config['total'] - 1))
+            # print(3)
+        elif e.key() == Qt.Key_4:
+            self.config_obj.update({'name':self.image_viewer.name, 'index':self.image_viewer.index, 'assessment':(self.image_viewer.name,
+                                                                                                                  4)})
+            self.slide.setValue(min(self.image_viewer.index + 1, self.config_obj.config['total'] - 1))
+            # print(4)
+        # elif e.key() == Qt.Key_5:
+        #     self.slide.setValue(min(self.viewer.index + 1, self.config_obj.config['total']))
+        #     print(5)
+        else:
+            # assert ValueError()
+            QMessageBox().information(None, "Warning", "Please press `1234 to give score!", QMessageBox.Yes)
+
+            self.config_obj.update()
+            
+            super(Window, self).keyPressEvent(e)
+
 
 
     def slideChange(self):
-        index = self.slide.value()
+        index = min(max(0, self.slide.value()), self.config_obj.config['total'] - 1)
         if index != self.current_index:
-            self.current_index = index
-            self.viewer.set_current_index(index)
-            self.viewer.image_change()
-            self.input_index.setText('%s/%s'%(str(index), len(self.viewer.image_paths)))
+            # if check current image has been check or not
+            current_name, _, _ = self.image_paths[self.current_index]
+            next_name, _, _ = self.image_paths[index]
+            if current_name in self.config_obj.config['assessment'] or next_name in self.config_obj.config['assessment']:
+                self.current_index = index
+                self.image_viewer.set_current_index(index)
+                self.image_viewer.image_change()
+            else:
+                QMessageBox().warning(None, "Warning", "Please label current image !", QMessageBox.Yes)
+
+                self.slide.setValue(self.current_index)
 
 
     def closeEvent(self, event):
         print('closed!', '*'*10)
-        self.f.close()
         self.config_obj.update()
         return super().closeEvent(event)
+
+
+    def catch_exceptions(self, exc_type, exc_value, exc_tb):
+        print(exc_type, exc_value, traceback)
+        traceback_string = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        QMessageBox.critical(None, 'An exception was raised', "%s"%(traceback_string), QMessageBox.NoButton)
+        self.old_hook(exc_type, exc_value, exc_tb)
+        self.close()
 
 
 if __name__ == '__main__':
 
 
     # Create the application.
+    # sys.excepthook = catch_exceptions
     app = QApplication(sys.argv)
 
     # Create image viewer and load an image file to display.
-    viewer = Window(source_path="/Users/sober/Downloads/Project/pwd2022_test_all", target_path="../")
+    # viewer = Window(source_path="/Volumes/home/temp/pwd2022_test_select",
+    #                 target_path="/Users/sober/Downloads/tp")
 
-    viewer.setFixedSize(800, 800)
+
+    oper_message = QMessageBox()
+    oper_message.setWindowTitle('Help')
+    oper_message.setIconPixmap(QPixmap(get_resource_path('keyboard.png')))
+    # oper_message.setStandardButtons(QMessageBox.Ok)
+    oper_message.setDefaultButton(QMessageBox.Ok)
+    oper_message.show()
+    oper_message.exec_()
+
+    while True:
+        # print('Select the path')
+        path  = QFileDialog.getExistingDirectory()
+        print('Select the path:', path)
+        if path == '':
+            press_button = QMessageBox().information(None, "Error", "Please select one folder!", QMessageBox.Yes |
+                                           QMessageBox.No, QMessageBox.No)
+            if press_button == QMessageBox.No:
+                sys.exit(0)
+        else:
+            break
+
+
+
+    window = Window(source_path=path, target_path="./")
+    # window = Window(source_path=r'H:/tp/quality', target_path="./")
+
+    window.setFixedSize(800, 800)
     # Show viewer and run application.
-    viewer.show()
+    window.show()
+
+
     sys.exit(app.exec_())
 

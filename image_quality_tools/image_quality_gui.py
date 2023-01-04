@@ -20,19 +20,6 @@ from misc import ConfigUtil, get_resource_path
 class Window(QWidget):
 
     def get_names(self, path):
-        # assert osp.exists(path), 'Input path must exist! %s'%path
-        # name_paths = []
-        # for file in os.listdir(path):
-        #     if file.lower().split('.')[-1] in ['jpg', 'png', 'jpeg', 'tif'] and '_vis' not in file.lower().split(
-        #             '.')[0]:
-        #         name = file.split('.')[0]
-        #         img_path = osp.join(path, file)
-        #         json_path = osp.join(path, '%s.json'%name)
-        #         # assert osp.exists(json_path), 'The json file %s must exist!'%json_path
-        #         # name, img_path, json_path
-        #         if osp.exists(json_path):
-        #             name_paths.append((name, img_path, json_path))
-        # return name_paths
 
         get_name_dialog = QProgressDialog()
         get_name_dialog.setWindowModality(Qt.WindowModal)

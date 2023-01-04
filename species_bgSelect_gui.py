@@ -278,7 +278,7 @@ class Window(QWidget):
         self.viewer = QtImageViewer(self.do_action, image_paths, self.config_obj)
         self.viewer.setFocusPolicy(Qt.NoFocus)
         os.makedirs(target_path, exist_ok=True)
-        self.f = open(osp.join(target_path, 'bg.txt'), 'a', encoding='utf-8')
+        self.f = open(osp.join(target_path, 'ambigiou_fp.txt'), 'a', encoding='utf-8')
 
 
         self.current_index = None

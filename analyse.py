@@ -9,7 +9,7 @@ import sys
 import matplotlib.pyplot as plt
 
 from misc.pascal_voc_utils import Reader, PaddingModify, Writer
-from misc.util import load_pkl, save_pkl
+from misc.utils import load_pkl, save_pkl
 
 
 def box_scales(path, target_path):

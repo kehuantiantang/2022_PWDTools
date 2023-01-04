@@ -10,7 +10,7 @@ import os
 import os.path as osp
 
 from misc.pascal_voc_utils import Writer
-from misc.util import save_json
+from misc.utils import save_json
 
 
 def get_objects(contexts):

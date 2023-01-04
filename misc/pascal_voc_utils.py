@@ -150,14 +150,6 @@ class Modify(object):
         self.target_path = target_path
 
     def modify(self):
-
-
-        # tags = ['xmin', 'ymin', 'xmax', 'ymax']
-        # for tag in tags:
-        #     for x in self.root.iter(tag=tag):
-        #         x.text = str(round(float(x.text)))
-        #
-        # return True
         tags = ['name']
         for tag in tags:
             for x in self.root.iter(tag=tag):

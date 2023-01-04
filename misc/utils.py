@@ -2,20 +2,16 @@
 import argparse
 import json
 import pprint
-import shutil
-import sys
 import os
-import time
 import zipfile
 from collections import defaultdict, OrderedDict
 from types import SimpleNamespace
 
 import hdfdict as h5d
-import logging
 import yaml
 
-from logger import Logger
-from pascal_voc_utils import Reader
+from misc.logger import Logger
+from misc.pascal_voc_utils import Reader
 
 
 def get_current_lr(optimizer):

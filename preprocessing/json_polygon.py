@@ -65,7 +65,29 @@ class JsonLoader(object):
 
         return obj_dicts
 
-    def get_objects(self, context):
+    def get_index2label(self, index_str):
+        try:
+            return self.index2label[index_str]
+        except:
+            self.index2label = defaultdict(lambda: 'disease')
+            self.index2label['00000000'] = 'unknown'
+            self.index2label['01000000'] = 'forest'
+            self.index2label['02000000'] = 'noForest'
+            self.index2label['01000100'] = 'disease_unknown-init'
+            self.index2label['01000200'] = 'disease_unknown-middle'
+            self.index2label['01000300'] = 'disease_unknown-late'
+            self.index2label['01110100'] = 'disease_pine-init'
+            self.index2label['01110200'] = 'disease_pine-middle'
+            self.index2label['01110300'] = 'disease_pine-late'
+            self.index2label['01120100'] = 'disease_beauty-init'
+            self.index2label['01120200'] = 'disease_beauty-middle'
+            self.index2label['01120300'] = 'disease_beauty-late'
+            self.index2label['01130100'] = 'disease_black-init'
+            self.index2label['01130200'] = 'disease_black-middle'
+            self.index2label['01130300'] = 'disease_black-late'
+            return self.index2label[index_str]
+
+    def get_objects(self, context, json_shape_type = 'polygon'):
         if self.get_object_method != None:
             return self.get_object_method(context)
         else:
@@ -77,7 +99,8 @@ class JsonLoader(object):
                          'filename': path, 'difficults': [], 'scores': []}
 
             for polygon in context.shapes:
-                label = polygon.label
+                label = str(polygon.label).strip()
+
                 points = polygon.points
                 group_id = polygon.group_id
                 shape_type = polygon.shape_type
@@ -103,13 +126,13 @@ class JsonLoader(object):
                     xmin, ymin, xmax, ymax = max(min(x_points), 0), max(min(y_points), 0), min(max(x_points), width), min(max(y_points), height)
                     if xmin >= xmax or ymin >= ymax:
                         continue
-
-                    obj_dicts['name'].append('disease')
-                    obj_dicts['bboxes'].append([xmin, ymin, xmax, ymax])
-                    obj_dicts['category_name'].append('disease')
-                    obj_dicts['polygons'].append(points)
-                    obj_dicts['difficults'].append(difficult)
-                    obj_dicts['scores'].append(score)
+                    if shape_type == json_shape_type:
+                        obj_dicts['name'].append(self.get_index2label(label))
+                        obj_dicts['bboxes'].append([xmin, ymin, xmax, ymax])
+                        obj_dicts['category_name'].append(self.get_index2label(label))
+                        obj_dicts['polygons'].append(points)
+                        obj_dicts['difficults'].append(difficult)
+                        obj_dicts['scores'].append(score)
 
             return obj_dicts
 
@@ -195,3 +218,5 @@ class JsonLoader(object):
 
         return counter, bboxes, polygons
 
+if __name__ == '__main__':
+    pass

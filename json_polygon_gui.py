@@ -1,7 +1,7 @@
 # coding=utf-8
 import os.path
 import sys
-from misc import util as cv2
+from misc import utils as cv2
 from PyQt5.QtCore import Qt, QRectF, pyqtSignal, QT_VERSION_STR
 from PyQt5.QtGui import QImage, QPixmap, QIntValidator
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QFileDialog, QWidget, QVBoxLayout, QHBoxLayout, \

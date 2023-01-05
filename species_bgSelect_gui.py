@@ -185,7 +185,7 @@ class QtImageViewer(QGraphicsView):
             img = cv2.imread(fileName)
 
             # # boxes, polygon image
-            h, w, c = img.shape
+            h, w, c = img.img_shape
 
             img = img[..., ::-1].copy()
             image = QImage(img.data, h, w,  3*h, QImage.Format_RGB888)

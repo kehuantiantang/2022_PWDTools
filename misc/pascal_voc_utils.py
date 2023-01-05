@@ -204,7 +204,7 @@ def avg_iou(boxes, clusters):
     :param clusters: numpy array of shape (k, 2) where k is the number of clusters
     :return: average IoU as a single float
     """
-    return np.mean([np.max(iou(boxes[i], clusters)) for i in range(boxes.shape[0])])
+    return np.mean([np.max(iou(boxes[i], clusters)) for i in range(boxes.img_shape[0])])
 
 
 def translate_boxes(boxes):
@@ -214,7 +214,7 @@ def translate_boxes(boxes):
     :return: numpy array of shape (r, 2)
     """
     new_boxes = boxes.copy()
-    for row in range(new_boxes.shape[0]):
+    for row in range(new_boxes.img_shape[0]):
         new_boxes[row][2] = np.abs(new_boxes[row][2] - new_boxes[row][0])
         new_boxes[row][3] = np.abs(new_boxes[row][3] - new_boxes[row][1])
     return np.delete(new_boxes, [0, 1], axis=1)
@@ -228,7 +228,7 @@ def kmeans(boxes, k, dist=np.median):
     :param dist: distance function
     :return: numpy array of shape (k, 2)
     """
-    rows = boxes.shape[0]
+    rows = boxes.img_shape[0]
 
     distances = np.empty((rows, k))
     last_clusters = np.zeros((rows,))

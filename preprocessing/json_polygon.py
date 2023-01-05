@@ -88,6 +88,12 @@ class JsonLoader(object):
             return self.index2label[index_str]
 
     def get_objects(self, context, json_shape_type = 'polygon'):
+        '''
+
+        :param context:
+        :param json_shape_type:
+        :return:
+        '''
         if self.get_object_method != None:
             return self.get_object_method(context)
         else:
@@ -126,6 +132,7 @@ class JsonLoader(object):
                     xmin, ymin, xmax, ymax = max(min(x_points), 0), max(min(y_points), 0), min(max(x_points), width), min(max(y_points), height)
                     if xmin >= xmax or ymin >= ymax:
                         continue
+
                     if shape_type == json_shape_type:
                         obj_dicts['name'].append(self.get_index2label(label))
                         obj_dicts['bboxes'].append([xmin, ymin, xmax, ymax])

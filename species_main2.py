@@ -63,7 +63,7 @@ directory.replace('_IMAGE', ''))
                 except Exception as e:
                     print(vis_img_path, e)
                     print(root_img_path)
-                    print(np.unique(vis), img.shape)
+                    print(np.unique(vis), img.img_shape)
                 cv2.imwrite(osp.join(mask_path, '%s.png'%name), mask)
 
 

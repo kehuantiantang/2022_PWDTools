@@ -162,7 +162,7 @@ class QtImageViewer(QGraphicsView):
             # boxes, polygon image
             img = jl.draw_bboxes(img, self.attributes)
             # img = jl.draw_polygons(img, self.attributes)
-            h, w, c = img.shape
+            h, w, c = img.img_shape
 
             img = img[..., ::-1].copy()
             image = QImage(img.data, h, w,  3*h, QImage.Format_RGB888)

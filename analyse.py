@@ -173,7 +173,7 @@ if __name__ == '__main__':
     import cv2
     import numpy as np
     img = cv2.imread('/Users/sober/Downloads/Project/2022_pwd/temp/kangsan/test/img/AP_IMAGE_512/FR_GS_AP_35712028_443.tif', cv2.IMREAD_UNCHANGED)
-    print(img.shape, np.unique(img))
+    print(img.img_shape, np.unique(img))
     # p = '/Users/sober/Downloads/Project/2022_pwd/temp/zezhu/test/label/PI_512/METADATA/FR_JJ_PI_6049_FGT_META.json'
     # # encoding = 'cp1250', errors = 'ignore'
     # from bs4 import UnicodeDammit
